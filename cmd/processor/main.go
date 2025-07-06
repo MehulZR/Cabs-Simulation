@@ -41,7 +41,7 @@ func main() {
 
 	go processor.Start()
 
-	serveMetrics(ctx, redisClient, rabbitMQClient)
+	serveAPI(ctx, redisClient, rabbitMQClient)
 
 	if rabbitMQClientErr != nil {
 		log.Error("Failed to close rabbitMQClient")
@@ -51,7 +51,7 @@ func main() {
 
 var currentSimulationState []types.DriverState
 
-func serveMetrics(ctx context.Context, redis *redis.Client, rabbitMQ *queue.RabbitMQClient) {
+func serveAPI(ctx context.Context, redis *redis.Client, rabbitMQ *queue.RabbitMQClient) {
 	if err := rabbitMQ.CreateQueue(queue.NewRideRequestedTopic, false, false); err != nil {
 		panic(err)
 	}
@@ -62,7 +62,13 @@ func serveMetrics(ctx context.Context, redis *redis.Client, rabbitMQ *queue.Rabb
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ws" {
+			w.WriteHeader(http.StatusNotFound)
+		}
 		ws, err := websocketUpgrader.Upgrade(w, r, nil)
 		if err != nil {
 			panic(err)
